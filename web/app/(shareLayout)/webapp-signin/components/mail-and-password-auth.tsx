@@ -1,7 +1,6 @@
 'use client'
 import { Button } from '@langgenius/dify-ui/button'
 import { Field, FieldLabel } from '@langgenius/dify-ui/field'
-import { Form } from '@langgenius/dify-ui/form'
 import { IconButton } from '@langgenius/dify-ui/icon-button'
 import { Input } from '@langgenius/dify-ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@langgenius/dify-ui/input-group'
@@ -34,8 +33,6 @@ export default function MailAndPasswordAuth({ isEmailSetup }: MailAndPasswordAut
   const searchParams = useSearchParams()
   const [showPassword, setShowPassword] = useState(false)
   const emailFromLink = decodeURIComponent(searchParams.get('email') || '')
-  const [email, setEmail] = useState(emailFromLink)
-  const [password, setPassword] = useState('')
 
   const [isLoading, setIsLoading] = useState(false)
   const redirectUrl = searchParams.get('redirect_url')
@@ -46,7 +43,9 @@ export default function MailAndPasswordAuth({ isEmailSetup }: MailAndPasswordAut
       replaceLoginRedirect(getClientLoginFallback(), router.replace, basePath)
   }, [redirectUrl, router])
 
-  const handleEmailPasswordLogin = async () => {
+  const handleEmailPasswordLogin = async (email: string, password: string) => {
+    if (isLoading)
+      return
     const loginRedirect = resolveWebAppLoginRedirect(redirectUrl, window.location.origin)
     if (!loginRedirect) {
       replaceLoginRedirect(getClientLoginFallback(), router.replace, basePath)
@@ -104,9 +103,15 @@ export default function MailAndPasswordAuth({ isEmailSetup }: MailAndPasswordAut
   }
 
   return (
-    <Form
-      onFormSubmit={() => {
-        void handleEmailPasswordLogin()
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault()
+        const data = new FormData(event.currentTarget)
+        void handleEmailPasswordLogin(
+          String(data.get('email') || ''),
+          String(data.get('password') || ''),
+        )
       }}
     >
       <Field name="email" className="mb-3 block">
@@ -115,8 +120,8 @@ export default function MailAndPasswordAuth({ isEmailSetup }: MailAndPasswordAut
         </FieldLabel>
         <div className="mt-1">
           <Input
-            value={email}
-            onValueChange={setEmail}
+            defaultValue={emailFromLink}
+            name="email"
             id="email"
             type="email"
             autoComplete="email"
@@ -142,8 +147,7 @@ export default function MailAndPasswordAuth({ isEmailSetup }: MailAndPasswordAut
         </div>
         <InputGroup className="mt-1">
           <InputGroupInput
-            value={password}
-            onValueChange={setPassword}
+            name="password"
             id="password"
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
@@ -152,6 +156,7 @@ export default function MailAndPasswordAuth({ isEmailSetup }: MailAndPasswordAut
           />
           <InputGroupAddon align="inline-end">
             <IconButton
+              type="button"
               size="lg"
               variant="ghost"
               aria-label={t(($) => $[showPassword ? 'hidePassword' : 'showPassword'], {
@@ -169,12 +174,12 @@ export default function MailAndPasswordAuth({ isEmailSetup }: MailAndPasswordAut
         <Button
           type="submit"
           variant="primary"
-          disabled={isLoading || !email || !password}
+          disabled={isLoading}
           className="w-full"
         >
           {t(($) => $.signBtn, { ns: 'login' })}
         </Button>
       </div>
-    </Form>
+    </form>
   )
 }

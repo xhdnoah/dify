@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { encryptPassword } from '@/utils/encryption'
 import MailAndPasswordAuth from '../mail-and-password-auth'
 
 const replaceMock = vi.fn()
@@ -73,6 +74,42 @@ describe('MailAndPasswordAuth', () => {
         },
       })
     })
+  })
+
+  it('submits autofilled credentials without input or change events', async () => {
+    const user = userEvent.setup()
+    render(<MailAndPasswordAuth isEmailSetup />)
+
+    const emailInput = screen.getByRole<HTMLInputElement>('textbox', { name: 'login.email' })
+    const passwordInput = screen.getByLabelText<HTMLInputElement>('login.password')
+    // Password managers can fill native values without notifying React.
+    emailInput.value = 'autofill@example.com'
+    passwordInput.value = 'autofilled-password'
+
+    const submitButton = screen.getByRole('button', { name: 'login.signBtn' })
+    expect(submitButton).toBeEnabled()
+    await user.click(submitButton)
+
+    await waitFor(() => {
+      expect(webAppLoginMock).toHaveBeenCalledWith({
+        url: '/login',
+        body: {
+          email: 'autofill@example.com',
+          password: encryptPassword('autofilled-password'),
+          remember_me: true,
+        },
+      })
+    })
+  })
+
+  it('keeps the password field name separate from the recovery link', () => {
+    render(<MailAndPasswordAuth isEmailSetup />)
+
+    expect(screen.getByLabelText('login.password', { exact: true })).toHaveAttribute(
+      'name',
+      'password',
+    )
+    expect(screen.getByRole('link', { name: 'login.forget' })).toBeInTheDocument()
   })
 
   it('names the password visibility action for its current state', async () => {
