@@ -805,6 +805,13 @@ export const zNoFileUploadedError = zErrorResponse.and(
 )
 
 /**
+ * SkillGithubImportPayload
+ */
+export const zSkillGithubImportPayload = z.object({
+  url: z.string().min(1).max(2048),
+})
+
+/**
  * SkillDeletePayload
  */
 export const zSkillDeletePayload = z.object({
@@ -6213,6 +6220,13 @@ export const zPostWorkspacesCurrentSkillsImportBody = z.object({
  * Skill imported
  */
 export const zPostWorkspacesCurrentSkillsImportResponse = zSkillDetailResponse
+
+export const zPostWorkspacesCurrentSkillsImportGithubBody = zSkillGithubImportPayload
+
+/**
+ * GitHub Skill imported as a draft
+ */
+export const zPostWorkspacesCurrentSkillsImportGithubResponse = zSkillDetailResponse
 
 /**
  * Workspace Skill tags

@@ -16823,6 +16823,21 @@ Import a Skill zip package from multipart form field `file`.
 | 400 | Bad Request | **application/json**: [InvalidRequestError](#invalidrequesterror)<br>[ErrorResponse](#errorresponse)<br> |
 | default | Error | **application/json**: [ErrorResponse](#errorresponse)<br> |
 
+### [POST] /workspaces/current/skills/import/github
+#### Request Body
+
+| Required | Schema |
+| -------- | ------ |
+|  Yes | **application/json**: [SkillGithubImportPayload](#skillgithubimportpayload)<br> |
+
+#### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 201 | GitHub Skill imported as a draft | **application/json**: [SkillDetailResponse](#skilldetailresponse)<br> |
+| 400 | Bad Request | **application/json**: [InvalidRequestError](#invalidrequesterror)<br>[ErrorResponse](#errorresponse)<br> |
+| default | Error | **application/json**: [ErrorResponse](#errorresponse)<br> |
+
 ### [GET] /workspaces/current/skills/tags
 #### Responses
 
@@ -32777,6 +32792,12 @@ How a draft file's content is stored.
 | mime_type | string |  | Yes |
 | name | string |  | Yes |
 | size | integer |  | Yes |
+
+#### SkillGithubImportPayload
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| url | string | Public GitHub repository or tree directory URL. | Yes |
 
 #### SkillListResponse
 

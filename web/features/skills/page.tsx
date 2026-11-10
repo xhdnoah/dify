@@ -200,7 +200,7 @@ function SkillPlaceholderState({
               <button
                 type="button"
                 disabled={actions.creating || actions.importing}
-                className="flex w-full cursor-pointer items-center gap-3 overflow-hidden rounded-xl bg-components-button-secondary-bg px-3 py-2.5 text-left outline-hidden hover:bg-state-base-hover focus-visible:ring-2 focus-visible:ring-state-accent-solid disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full cursor-pointer items-center gap-3 overflow-hidden rounded-xl bg-components-button-secondary-bg px-3 py-2.5 text-start outline-hidden hover:bg-state-base-hover focus-visible:ring-2 focus-visible:ring-state-accent-solid disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={actions.onCreate}
               >
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background-section">
@@ -224,7 +224,7 @@ function SkillPlaceholderState({
               <button
                 type="button"
                 disabled={actions.creating || actions.importing}
-                className="flex w-full cursor-pointer items-center gap-3 overflow-hidden rounded-xl bg-components-button-secondary-bg px-3 py-2.5 text-left outline-hidden hover:bg-state-base-hover focus-visible:ring-2 focus-visible:ring-state-accent-solid disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full cursor-pointer items-center gap-3 overflow-hidden rounded-xl bg-components-button-secondary-bg px-3 py-2.5 text-start outline-hidden hover:bg-state-base-hover focus-visible:ring-2 focus-visible:ring-state-accent-solid disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={actions.onImport}
               >
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background-section">
@@ -581,7 +581,7 @@ function SkillCard({
           </Menu>
         </div>
       </div>
-      <div className="pointer-events-none absolute top-26 right-3 left-3 flex h-6.5 min-w-0 items-start">
+      <div className="pointer-events-none absolute inset-s-3 inset-e-3 top-26 flex h-6.5 min-w-0 items-start">
         <div className="pointer-events-auto w-full min-w-0">
           <SkillCardTags
             skillId={skill.id}
@@ -848,9 +848,11 @@ function SkillGrid({ state }: SkillGridProps) {
 function ImportSkillDialogForm({
   importing,
   onImport,
+  onImportGithub,
 }: {
   importing: boolean
   onImport: (file: File) => void
+  onImportGithub: (url: string) => void
 }) {
   const { t } = useTranslation(['skill'])
   const { t: tCommon } = useTranslation(['common'])
@@ -858,6 +860,8 @@ function ImportSkillDialogForm({
   const dragDepthRef = useRef(0)
   const descriptionId = useId()
   const errorId = useId()
+  const [source, setSource] = useState<'file' | 'github'>('file')
+  const [githubUrl, setGithubUrl] = useState('')
   const [file, setFile] = useState<File>()
   const [invalidFile, setInvalidFile] = useState(false)
   const [dragging, setDragging] = useState(false)
@@ -882,7 +886,9 @@ function ImportSkillDialogForm({
       className="contents"
       onSubmit={(event) => {
         event.preventDefault()
-        if (file && !importing) onImport(file)
+        if (importing) return
+        if (source === 'github') onImportGithub(githubUrl.trim())
+        else if (file) onImport(file)
       }}
     >
       <DialogHeader>
@@ -893,110 +899,166 @@ function ImportSkillDialogForm({
         />
       </DialogHeader>
       <DialogBody>
-        <div
-          role="group"
-          aria-label={t(($) => $['skillManagement.importDialog.title'])}
-          className={cn(
-            'flex min-h-34 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-components-dropzone-border-alt bg-components-dropzone-bg-alt px-5 py-4',
-            dragging && 'border-components-dropzone-border-accent bg-components-dropzone-bg-accent',
-          )}
-          onDragEnter={(event) => {
-            if (!hasFiles(event)) return
-            event.preventDefault()
-            event.stopPropagation()
-            if (importing) return
-            dragDepthRef.current += 1
-            setDragging(true)
-          }}
-          onDragOver={(event) => {
-            if (!hasFiles(event)) return
-            event.preventDefault()
-            event.stopPropagation()
-            event.dataTransfer.dropEffect = importing ? 'none' : 'copy'
-          }}
-          onDragLeave={(event) => {
-            if (!hasFiles(event)) return
-            event.preventDefault()
-            event.stopPropagation()
-            dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
-            if (dragDepthRef.current === 0) setDragging(false)
-          }}
-          onDrop={(event) => {
-            if (!hasFiles(event)) return
-            event.preventDefault()
-            event.stopPropagation()
-            dragDepthRef.current = 0
-            setDragging(false)
-            selectFiles(Array.from(event.dataTransfer.files))
-          }}
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".zip,.skill,application/zip"
-            className="hidden"
-            aria-label={t(($) => $['skillManagement.importDialog.browse'])}
-            aria-describedby={invalidFile ? `${descriptionId} ${errorId}` : descriptionId}
-            aria-invalid={invalidFile}
+        <div className="mb-4 flex gap-2">
+          <Button
+            aria-pressed={source === 'file'}
+            variant={source === 'file' ? 'primary' : 'secondary'}
             disabled={importing}
-            onChange={(event) => {
-              selectFiles(Array.from(event.currentTarget.files ?? []))
-              event.currentTarget.value = ''
-            }}
-          />
-          <span aria-hidden className="i-ri-file-zip-line size-8 shrink-0 text-text-quaternary" />
-          {file ? (
-            <div className="flex w-full items-center justify-center gap-3">
-              <div className="min-w-0 text-center">
-                <p className="system-sm-medium wrap-anywhere text-text-secondary">{file.name}</p>
-                <p className="system-xs-regular text-text-tertiary">{formatFileSize(file.size)}</p>
-              </div>
-              <IconButton
-                aria-label={tCommon(($) => $['operation.remove'])}
+            onClick={() => setSource('file')}
+          >
+            {t(($) => $['skillManagement.importDialog.sourceFile'])}
+          </Button>
+          <Button
+            aria-pressed={source === 'github'}
+            variant={source === 'github' ? 'primary' : 'secondary'}
+            disabled={importing}
+            onClick={() => setSource('github')}
+          >
+            {t(($) => $['skillManagement.importDialog.sourceGithub'])}
+          </Button>
+        </div>
+        {source === 'github' ? (
+          <Field>
+            <FieldLabel>{t(($) => $['skillManagement.importDialog.githubUrl'])}</FieldLabel>
+            <InputGroup>
+              <InputGroupInput
+                type="url"
+                required
+                maxLength={2048}
+                value={githubUrl}
                 disabled={importing}
-                onClick={() => setFile(undefined)}
-              >
-                <span aria-hidden className="i-ri-close-line size-4" />
-              </IconButton>
-            </div>
-          ) : (
-            <p className="text-center system-md-medium text-text-secondary">
-              <Trans
-                ns="skill"
-                i18nKey={($) => $['skillManagement.importDialog.dropzone']}
-                components={{
-                  browse: (
-                    <button
-                      type="button"
-                      disabled={importing}
-                      aria-describedby={invalidFile ? `${descriptionId} ${errorId}` : descriptionId}
-                      className="cursor-pointer rounded-sm text-text-accent focus-visible:ring-2 focus-visible:ring-state-accent-solid focus-visible:outline-hidden disabled:cursor-not-allowed"
-                      onClick={() => inputRef.current?.click()}
-                    />
-                  ),
+                aria-describedby={descriptionId}
+                placeholder="https://github.com/owner/repo/tree/main/skills/example"
+                onChange={(event) => setGithubUrl(event.currentTarget.value)}
+              />
+            </InputGroup>
+            <DialogDescription id={descriptionId}>
+              {t(($) => $['skillManagement.importDialog.githubDescription'])}
+            </DialogDescription>
+          </Field>
+        ) : (
+          <>
+            <div
+              role="group"
+              aria-label={t(($) => $['skillManagement.importDialog.title'])}
+              className={cn(
+                'flex min-h-34 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-components-dropzone-border-alt bg-components-dropzone-bg-alt px-5 py-4',
+                dragging &&
+                  'border-components-dropzone-border-accent bg-components-dropzone-bg-accent',
+              )}
+              onDragEnter={(event) => {
+                if (!hasFiles(event)) return
+                event.preventDefault()
+                event.stopPropagation()
+                if (importing) return
+                dragDepthRef.current += 1
+                setDragging(true)
+              }}
+              onDragOver={(event) => {
+                if (!hasFiles(event)) return
+                event.preventDefault()
+                event.stopPropagation()
+                event.dataTransfer.dropEffect = importing ? 'none' : 'copy'
+              }}
+              onDragLeave={(event) => {
+                if (!hasFiles(event)) return
+                event.preventDefault()
+                event.stopPropagation()
+                dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
+                if (dragDepthRef.current === 0) setDragging(false)
+              }}
+              onDrop={(event) => {
+                if (!hasFiles(event)) return
+                event.preventDefault()
+                event.stopPropagation()
+                dragDepthRef.current = 0
+                setDragging(false)
+                selectFiles(Array.from(event.dataTransfer.files))
+              }}
+            >
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".zip,.skill,application/zip"
+                className="hidden"
+                aria-label={t(($) => $['skillManagement.importDialog.browse'])}
+                aria-describedby={invalidFile ? `${descriptionId} ${errorId}` : descriptionId}
+                aria-invalid={invalidFile}
+                disabled={importing}
+                onChange={(event) => {
+                  selectFiles(Array.from(event.currentTarget.files ?? []))
+                  event.currentTarget.value = ''
                 }}
               />
-            </p>
-          )}
-          <DialogDescription
-            id={descriptionId}
-            // oxlint-disable-next-line shadcn/no-restyle -- Description is centred under the upload drop zone.
-            className="text-center"
-          >
-            {t(($) => $['skillManagement.importDialog.description'])}
-          </DialogDescription>
-        </div>
-        {invalidFile && (
-          <p id={errorId} role="alert" className="mt-2 system-xs-regular text-text-destructive">
-            {t(($) => $['skillManagement.importDialog.invalidFile'])}
-          </p>
+              <span
+                aria-hidden
+                className="i-ri-file-zip-line size-8 shrink-0 text-text-quaternary"
+              />
+              {file ? (
+                <div className="flex w-full items-center justify-center gap-3">
+                  <div className="min-w-0 text-center">
+                    <p className="system-sm-medium wrap-anywhere text-text-secondary">
+                      {file.name}
+                    </p>
+                    <p className="system-xs-regular text-text-tertiary">
+                      {formatFileSize(file.size)}
+                    </p>
+                  </div>
+                  <IconButton
+                    aria-label={tCommon(($) => $['operation.remove'])}
+                    disabled={importing}
+                    onClick={() => setFile(undefined)}
+                  >
+                    <span aria-hidden className="i-ri-close-line size-4" />
+                  </IconButton>
+                </div>
+              ) : (
+                <p className="text-center system-md-medium text-text-secondary">
+                  <Trans
+                    ns="skill"
+                    i18nKey={($) => $['skillManagement.importDialog.dropzone']}
+                    components={{
+                      browse: (
+                        <button
+                          type="button"
+                          disabled={importing}
+                          aria-describedby={
+                            invalidFile ? `${descriptionId} ${errorId}` : descriptionId
+                          }
+                          className="cursor-pointer rounded-sm text-text-accent focus-visible:ring-2 focus-visible:ring-state-accent-solid focus-visible:outline-hidden disabled:cursor-not-allowed"
+                          onClick={() => inputRef.current?.click()}
+                        />
+                      ),
+                    }}
+                  />
+                </p>
+              )}
+              <DialogDescription
+                id={descriptionId}
+                // oxlint-disable-next-line shadcn/no-restyle -- Description is centred under the upload drop zone.
+                className="text-center"
+              >
+                {t(($) => $['skillManagement.importDialog.description'])}
+              </DialogDescription>
+            </div>
+            {invalidFile && (
+              <p id={errorId} role="alert" className="mt-2 system-xs-regular text-text-destructive">
+                {t(($) => $['skillManagement.importDialog.invalidFile'])}
+              </p>
+            )}
+          </>
         )}
       </DialogBody>
       <DialogFooter>
         <DialogClose disabled={importing} render={<Button />}>
           {tCommon(($) => $['operation.cancel'])}
         </DialogClose>
-        <Button type="submit" variant="primary" disabled={!file} loading={importing}>
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={source === 'file' ? !file : !githubUrl.trim()}
+          loading={importing}
+        >
           {t(($) => $['skillManagement.import'])}
         </Button>
       </DialogFooter>
@@ -1026,6 +1088,12 @@ export default function SkillsPage() {
       context: { silent: true },
     }),
   )
+  const githubImportMutation = useMutation(
+    consoleQuery.workspaces.current.skills.import.github.post.mutationOptions({
+      context: { silent: true },
+    }),
+  )
+  const importing = importMutation.isPending || githubImportMutation.isPending
   const skillsQuery = useInfiniteQuery({
     ...consoleQuery.workspaces.current.skills.get.infiniteOptions({
       input: (pageParam) => ({
@@ -1047,7 +1115,7 @@ export default function SkillsPage() {
   useDocumentTitle(t(($) => $['skillManagement.title']))
 
   const handleCreate = () => {
-    if (createMutation.isPending || importMutation.isPending) return
+    if (createMutation.isPending || importing) return
 
     createMutation.mutate(
       {
@@ -1069,8 +1137,43 @@ export default function SkillsPage() {
     )
   }
 
+  const finishImport = (skill: SkillResponse) => {
+    setImportOpen(false)
+    invalidateSkillListQueries(queryClient)
+    router.push(`/skills/${skill.id}`)
+  }
+
+  const importFailed = (error: unknown) => {
+    const errorCode = getSkillErrorCode(error)
+    if (errorCode === 'skill_name_conflict') {
+      toast.error(
+        t(($) => $['skillManagement.errors.nameConflict'], {
+          name: getSkillErrorDetailString(error, 'name') ?? '',
+        }),
+      )
+      return
+    }
+    if (errorCode === 'skill_limit_exceeded') {
+      toast.error(t(($) => $['skillManagement.errors.workspaceLimit']))
+      return
+    }
+    if (errorCode === 'missing_skill_md') {
+      toast.error(t(($) => $['skillManagement.errors.missingSkillMd']))
+      return
+    }
+    toast.error(t(($) => $['skillManagement.importFailed']))
+  }
+
+  const handleGithubImport = (url: string) => {
+    if (!canEdit || importing || createMutation.isPending) return
+    githubImportMutation.mutate(
+      { body: { url } },
+      { onSuccess: finishImport, onError: importFailed },
+    )
+  }
+
   const handleImport = (file: File) => {
-    if (!canEdit || importMutation.isPending || createMutation.isPending) return
+    if (!canEdit || importing || createMutation.isPending) return
 
     importMutation.mutate(
       {
@@ -1079,31 +1182,8 @@ export default function SkillsPage() {
         },
       },
       {
-        onSuccess: (skill) => {
-          setImportOpen(false)
-          invalidateSkillListQueries(queryClient)
-          router.push(`/skills/${skill.id}`)
-        },
-        onError: (error) => {
-          const errorCode = getSkillErrorCode(error)
-          if (errorCode === 'skill_name_conflict') {
-            toast.error(
-              t(($) => $['skillManagement.errors.nameConflict'], {
-                name: getSkillErrorDetailString(error, 'name') ?? '',
-              }),
-            )
-            return
-          }
-          if (errorCode === 'skill_limit_exceeded') {
-            toast.error(t(($) => $['skillManagement.errors.workspaceLimit']))
-            return
-          }
-          if (errorCode === 'missing_skill_md') {
-            toast.error(t(($) => $['skillManagement.errors.missingSkillMd']))
-            return
-          }
-          toast.error(t(($) => $['skillManagement.importFailed']))
-        },
+        onSuccess: finishImport,
+        onError: importFailed,
       },
     )
   }
@@ -1163,7 +1243,7 @@ export default function SkillsPage() {
                     canEdit && !isFiltered
                       ? {
                           creating: createMutation.isPending,
-                          importing: importMutation.isPending,
+                          importing,
                           onCreate: handleCreate,
                           onImport: () => setImportOpen(true),
                         }
@@ -1212,7 +1292,7 @@ export default function SkillsPage() {
           <SkillsToolbar
             canEdit={canEdit}
             creating={createMutation.isPending}
-            importing={importMutation.isPending}
+            importing={importing}
             onCreate={handleCreate}
             onImport={() => setImportOpen(true)}
             onOpenTagManagement={() => setShowTagManagementModal(true)}
@@ -1242,11 +1322,15 @@ export default function SkillsPage() {
       <Dialog
         open={importOpen}
         onOpenChange={(open) => {
-          if (!importMutation.isPending) setImportOpen(open)
+          if (!importing) setImportOpen(open)
         }}
       >
         <DialogContent>
-          <ImportSkillDialogForm importing={importMutation.isPending} onImport={handleImport} />
+          <ImportSkillDialogForm
+            importing={importing}
+            onImport={handleImport}
+            onImportGithub={handleGithubImport}
+          />
         </DialogContent>
       </Dialog>
       <SkillListTagManagementModal

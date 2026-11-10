@@ -7042,11 +7042,6 @@
       "count": 13
     }
   },
-  "web/features/skills/page.tsx": {
-    "better-tailwindcss/enforce-logical-properties": {
-      "count": 4
-    }
-  },
   "web/features/tag-management/components/tag-filter.tsx": {
     "better-tailwindcss/enforce-logical-properties": {
       "count": 3

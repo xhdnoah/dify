@@ -863,6 +863,10 @@ export type NoFileUploadedError = ErrorResponse & {
   status: 400
 }
 
+export type SkillGithubImportPayload = {
+  url: string
+}
+
 export type SkillTagListResponse = {
   data?: Array<SkillTagResponse>
 }
@@ -7044,6 +7048,28 @@ export type PostWorkspacesCurrentSkillsImportResponses = {
 
 export type PostWorkspacesCurrentSkillsImportResponse =
   PostWorkspacesCurrentSkillsImportResponses[keyof PostWorkspacesCurrentSkillsImportResponses]
+
+export type PostWorkspacesCurrentSkillsImportGithubData = {
+  body: SkillGithubImportPayload
+  path?: never
+  query?: never
+  url: '/workspaces/current/skills/import/github'
+}
+
+export type PostWorkspacesCurrentSkillsImportGithubErrors = {
+  400: InvalidRequestError | ErrorResponse
+  default: ErrorResponse
+}
+
+export type PostWorkspacesCurrentSkillsImportGithubError =
+  PostWorkspacesCurrentSkillsImportGithubErrors[keyof PostWorkspacesCurrentSkillsImportGithubErrors]
+
+export type PostWorkspacesCurrentSkillsImportGithubResponses = {
+  201: SkillDetailResponse
+}
+
+export type PostWorkspacesCurrentSkillsImportGithubResponse =
+  PostWorkspacesCurrentSkillsImportGithubResponses[keyof PostWorkspacesCurrentSkillsImportGithubResponses]
 
 export type GetWorkspacesCurrentSkillsTagsData = {
   body?: never

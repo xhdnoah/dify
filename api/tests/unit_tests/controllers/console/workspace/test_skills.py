@@ -24,6 +24,7 @@ from controllers.console.workspace.skills import (
     WorkspaceSkillFilesApi,
     WorkspaceSkillFilesCheckApi,
     WorkspaceSkillFileUploadApi,
+    WorkspaceSkillGithubImportApi,
     WorkspaceSkillImportApi,
     WorkspaceSkillPublishApi,
     WorkspaceSkillReferencesApi,
@@ -1510,3 +1511,39 @@ def test_skill_import_documents_required_multipart_file() -> None:
     assert schema["required"] == ["file"]
     assert schema["properties"]["file"]["type"] == "string"
     assert schema["properties"]["file"]["format"] == "binary"
+
+
+def test_github_import_preserves_workspace_and_actor(app: Flask, request_context: RequestContext) -> None:
+    api = WorkspaceSkillGithubImportApi()
+    method = unwrap(api.post)
+    service, import_skill = _recording_service("import_skill", result=_skill_detail())
+    archive = SkillImportPayload(content=b"snapshot", filename="github-skill.zip")
+    with (
+        app.test_request_context("/", method="POST", json={"url": "https://github.com/org/repo"}),
+        patch(
+            "controllers.console.workspace.skills.SkillGithubImportService.download", return_value=archive
+        ) as download,
+        patch("controllers.console.workspace.skills.SkillManagementService", return_value=service),
+    ):
+        payload, status = method(api, request_context)
+    assert status == 201
+    assert payload["id"] == "skill-1"
+    download.assert_called_once_with("https://github.com/org/repo")
+    assert import_skill.calls == [
+        RecordedCall(args=(), kwargs={"tenant_id": "tenant-1", "user_id": "user-1", "payload": archive})
+    ]
+
+
+@pytest.mark.parametrize("body", [{}, {"url": ""}, {"url": "https://github.com/org/repo", "token": "secret"}])
+def test_github_import_rejects_invalid_body_without_downloading(
+    app: Flask, request_context: RequestContext, body: dict
+) -> None:
+    api = WorkspaceSkillGithubImportApi()
+    with (
+        app.test_request_context("/", method="POST", json=body),
+        patch("controllers.console.workspace.skills.SkillGithubImportService.download") as download,
+    ):
+        payload, status = raised_error(lambda: unwrap(api.post)(api, request_context))
+    assert status == 400
+    assert payload["code"] == "invalid_request"
+    download.assert_not_called()

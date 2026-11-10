@@ -33,6 +33,10 @@ const mocks = vi.hoisted(() => ({
   exportSkillArchiveBlob: vi.fn<typeof import('../client').fetchSkillArchiveBlob>(),
   importSkillMutationFn:
     vi.fn<typeof import('@/service/console').consoleClient.workspaces.current.skills.import.post>(),
+  githubImportSkillMutationFn:
+    vi.fn<
+      typeof import('@/service/console').consoleClient.workspaces.current.skills.import.github.post
+    >(),
   push: vi.fn(),
   genericTags: [] as Tag[],
   list: vi.fn<typeof import('@/service/console').consoleClient.workspaces.current.skills.get>(),
@@ -97,6 +101,7 @@ vi.mock('@/service/console', async (importOriginal) => {
       'workspaces.current.skills.tags.get': async () => ({ data: mocks.tags }),
       'workspaces.current.skills.post': mocks.createSkillMutationFn,
       'workspaces.current.skills.import.post': mocks.importSkillMutationFn,
+      'workspaces.current.skills.import.github.post': mocks.githubImportSkillMutationFn,
       'workspaces.current.skills.bySkillId.delete': mocks.deleteSkillMutationFn,
       'workspaces.current.skills.bySkillId.references.get': mocks.references,
       'workspaces.current.skills.bySkillId.duplicate.post': mocks.duplicateSkillMutationFn,
@@ -207,6 +212,9 @@ describe('SkillsPage', () => {
     vi.spyOn(toast, 'success')
     mocks.createSkillMutationFn.mockReset().mockResolvedValue(createSkill({ id: 'created-skill' }))
     mocks.importSkillMutationFn.mockReset().mockResolvedValue(createSkill({ id: 'imported-skill' }))
+    mocks.githubImportSkillMutationFn
+      .mockReset()
+      .mockResolvedValue(createSkill({ id: 'github-skill', latest_published_version_id: null }))
     mocks.duplicateSkillMutationFn
       .mockReset()
       .mockResolvedValue(createSkill({ id: 'duplicated-skill' }))
@@ -658,6 +666,90 @@ describe('SkillsPage', () => {
       expect(mocks.importSkillMutationFn).not.toHaveBeenCalled()
     },
   )
+
+  it('imports a GitHub directory as a draft and navigates to its editor', async () => {
+    const user = userEvent.setup()
+    renderSkillsPage()
+    await user.click(await screen.findByRole('button', { name: 'skill.skillManagement.import' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'skill.skillManagement.importDialog.sourceGithub',
+      }),
+    )
+    const submit = within(dialog).getByRole('button', { name: 'skill.skillManagement.import' })
+    expect(submit).toBeDisabled()
+    const url = 'https://github.com/org/repo/tree/main/skills/example'
+    await user.type(
+      within(dialog).getByLabelText('skill.skillManagement.importDialog.githubUrl'),
+      url,
+    )
+    expect(mocks.githubImportSkillMutationFn).not.toHaveBeenCalled()
+    await user.click(submit)
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/skills/github-skill'))
+    expect(mocks.githubImportSkillMutationFn).toHaveBeenCalledWith({ body: { url } })
+    expect(mocks.importSkillMutationFn).not.toHaveBeenCalled()
+  })
+
+  it('locks the URL and source while a GitHub import is pending', async () => {
+    const user = userEvent.setup()
+    let completeImport: ((skill: SkillResponse) => void) | undefined
+    mocks.githubImportSkillMutationFn.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          completeImport = resolve
+        }),
+    )
+    renderSkillsPage()
+    const dialog = await openImportDialog(user)
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'skill.skillManagement.importDialog.sourceGithub',
+      }),
+    )
+    const input = within(dialog).getByLabelText('skill.skillManagement.importDialog.githubUrl')
+    await user.type(input, 'https://github.com/org/repo')
+    const submit = within(dialog).getByRole('button', { name: 'skill.skillManagement.import' })
+    await user.click(submit)
+    await waitFor(() => expect(submit).toHaveAttribute('aria-disabled', 'true'))
+    expect(input).toBeDisabled()
+    expect(
+      within(dialog).getByRole('button', { name: 'skill.skillManagement.importDialog.sourceFile' }),
+    ).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'common.operation.cancel' })).toBeDisabled()
+    await user.click(submit)
+    await user.keyboard('{Escape}')
+    expect(dialog).toBeInTheDocument()
+    expect(mocks.githubImportSkillMutationFn).toHaveBeenCalledTimes(1)
+    completeImport?.(createSkill({ id: 'github-skill', latest_published_version_id: null }))
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/skills/github-skill'))
+  })
+
+  it('preserves a failed GitHub URL for correction and retry', async () => {
+    const user = userEvent.setup()
+    mocks.githubImportSkillMutationFn.mockRejectedValueOnce(
+      createHttpError(new Response(null, { status: 400 }), { code: 'missing_skill_md' }),
+    )
+    renderSkillsPage()
+    await user.click(await screen.findByRole('button', { name: 'skill.skillManagement.import' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'skill.skillManagement.importDialog.sourceGithub',
+      }),
+    )
+    const input = within(dialog).getByLabelText('skill.skillManagement.importDialog.githubUrl')
+    const url = 'https://github.com/org/repo'
+    await user.type(input, url)
+    await user.click(within(dialog).getByRole('button', { name: 'skill.skillManagement.import' }))
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('skill.skillManagement.errors.missingSkillMd'),
+    )
+    expect(input).toHaveValue(url)
+    expect(mocks.push).not.toHaveBeenCalled()
+    await user.click(within(dialog).getByRole('button', { name: 'skill.skillManagement.import' }))
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/skills/github-skill'))
+  })
 
   it.each(['refund.skill', 'refund.zip'])(
     'stages %s until confirmation, then navigates to the imported skill',

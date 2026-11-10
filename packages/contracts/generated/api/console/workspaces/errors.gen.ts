@@ -312,7 +312,9 @@ export const post50Errors = { invalid_request: { status: 400, data: zInvalidRequ
 
 export const post51Errors = { invalid_request: { status: 400, data: zInvalidRequestError } }
 
-export const post53Errors = { invalid_request: { status: 400, data: zInvalidRequestError } }
+export const post52Errors = { invalid_request: { status: 400, data: zInvalidRequestError } }
+
+export const post54Errors = { invalid_request: { status: 400, data: zInvalidRequestError } }
 
 export const get81Errors = { invalid_request: { status: 400, data: zInvalidRequestError } }
 
@@ -322,9 +324,9 @@ export const patch5Errors = { invalid_request: { status: 400, data: zInvalidRequ
 
 export const put20Errors = { invalid_request: { status: 400, data: zInvalidRequestError } }
 
-export const post54Errors = { invalid_request: { status: 400, data: zInvalidRequestError } }
-
 export const post55Errors = { invalid_request: { status: 400, data: zInvalidRequestError } }
+
+export const post56Errors = { invalid_request: { status: 400, data: zInvalidRequestError } }
 
 export const patch6Errors = { invalid_request: { status: 400, data: zInvalidRequestError } }
 
@@ -332,13 +334,13 @@ export const delete16Errors = { invalid_request: { status: 400, data: zInvalidRe
 
 export const patch7Errors = { invalid_request: { status: 400, data: zInvalidRequestError } }
 
-export const post56Errors = { invalid_request: { status: 400, data: zInvalidRequestError } }
+export const post57Errors = { invalid_request: { status: 400, data: zInvalidRequestError } }
 
 export const get88Errors = {
   current_workspace_archived: { status: 409, data: zCurrentWorkspaceArchivedError },
 }
 
-export const post80Errors = {
+export const post81Errors = {
   file_too_large: { status: 413, data: zFileTooLargeError },
   filename_not_exists_error: { status: 400, data: zFilenameNotExistsError },
   no_file_uploaded: { status: 400, data: zNoFileUploadedError },
@@ -346,6 +348,6 @@ export const post80Errors = {
   unsupported_file_type: { status: 415, data: zUnsupportedFileTypeError },
 }
 
-export const post83Errors = {
+export const post84Errors = {
   account_not_link_tenant: { status: 403, data: zAccountNotLinkTenantError },
 }

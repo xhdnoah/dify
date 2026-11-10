@@ -28,6 +28,7 @@ from libs.external_api import error_responses
 from libs.flask_restx_compat import BINARY_RESPONSE_MEDIA_TYPES_VENDOR_KEY
 from libs.helper import dump_response
 from machinery.context import RequestContext
+from services.skill_github_import_service import SkillGithubImportService
 from services.skill_management_service import (
     SkillAssistMessagePayload,
     SkillCreatePayload,
@@ -61,6 +62,12 @@ class WorkspaceSkillsQuery(BaseModel):
         default_factory=list,
         description="Skill tag filters. Repeat the parameter for multiple tags.",
     )
+
+
+class SkillGithubImportPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url: str = Field(min_length=1, max_length=2048, description="Public GitHub repository or tree directory URL.")
 
 
 class SkillDeletePayload(BaseModel):
@@ -251,6 +258,7 @@ class AgentSkillBindingsResponse(ResponseModel):
 register_schema_models(
     console_ns,
     WorkspaceSkillsQuery,
+    SkillGithubImportPayload,
     SkillCreatePayload,
     SkillAssistMessagePayload,
     SkillMetadataPayload,
@@ -384,6 +392,32 @@ class WorkspaceSkillTagsApi(Resource):
     def get(self, session: Session, request_context: RequestContext):
         result = SkillManagementService(session=session).list_tags(tenant_id=request_context.active_workspace_id)
         return dump_response(SkillTagListResponse, result)
+
+
+@console_ns.route("/workspaces/current/skills/import/github")
+class WorkspaceSkillGithubImportApi(Resource):
+    @error_responses(RelayedHTTPError, SkillRequestError)
+    @console_ns.expect(console_ns.models[SkillGithubImportPayload.__name__])
+    @console_ns.response(201, "GitHub Skill imported as a draft", console_ns.models[SkillDetailResponse.__name__])
+    @console_account_admission(
+        rbac_checks=[RBACCheck(RBACPermission.SKILL_EDIT, Workspace())],
+    )
+    @edit_permission_required
+    def post(self, request_context: RequestContext):
+        try:
+            payload = SkillGithubImportPayload.model_validate(console_ns.payload or {})
+            archive = SkillGithubImportService.download(payload.url)
+            # Network work completes before the importer opens its write session.
+            result = SkillManagementService().import_skill(
+                tenant_id=request_context.active_workspace_id,
+                user_id=request_context.account_id,
+                payload=archive,
+            )
+            return dump_response(SkillDetailResponse, result), 201
+        except (ValidationError, ValueError) as exc:
+            raise SkillRequestError(str(exc)) from exc
+        except SkillManagementServiceError as exc:
+            raise _relayed_error(exc) from exc
 
 
 @console_ns.route("/workspaces/current/skills/import")

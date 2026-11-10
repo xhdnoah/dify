@@ -3679,3 +3679,33 @@ def test_archive_limits_accept_high_compression_ratio_within_size_budget(monkeyp
         apply_config_overrides(monkeypatch, SKILL_PACKAGE_MAX_UNCOMPRESSED_BYTES=1024)
         with pytest.raises(SkillManagementServiceError, match="uncompressed size limit"):
             SkillManagementService._validate_archive_limits(archive)
+
+
+def test_github_snapshot_import_creates_only_draft() -> None:
+    from services.skill_github_import_service import SkillGithubImportService
+
+    package = io.BytesIO()
+    with zipfile.ZipFile(package, "w") as archive:
+        archive.writestr(
+            "repo-sha/skills/example/SKILL.md",
+            "---\nname: github-example\ndescription: Imported from GitHub\n---\nInstructions",
+        )
+        archive.writestr("repo-sha/skills/example/references/policy.md", "Policy")
+        archive.writestr("repo-sha/other/SKILL.md", "Other skill")
+    content = SkillGithubImportService._select_directory(package.getvalue(), "skills/example")
+    imported = SkillManagementService(tool_file_manager=_FakeToolFileManager()).import_skill(
+        tenant_id=TENANT,
+        user_id=USER,
+        payload=SkillImportPayload(content=content, filename="github-skill.zip"),
+    )
+    assert imported["name"] == "github-example"
+    assert imported["latest_published_version_id"] is None
+    assert imported["latest_published_version_number"] is None
+    assert {item["path"] for item in imported["files"]} == {"SKILL.md", "references", "references/policy.md"}
+    with session_factory.create_session() as session:
+        assert (
+            session.scalar(
+                select(func.count()).select_from(SkillVersion).where(SkillVersion.skill_id == imported["id"])
+            )
+            == 0
+        )
